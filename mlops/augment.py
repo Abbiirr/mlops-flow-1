@@ -35,7 +35,7 @@ def augment_to_disk(
         usecols=cfg.USECOLS,
         dtype=cfg.DTYPES,
         parse_dates=["pickup_datetime"],
-        infer_datetime_format=True,
+        # infer_datetime_format=True,  # <-- remove this
         dayfirst=False,
         chunksize=chunksize,
     )

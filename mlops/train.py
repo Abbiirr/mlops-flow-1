@@ -4,6 +4,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import mlflow, mlflow.sklearn
+from mlflow.models import infer_signature
+import sklearn  # for version pinning
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -27,8 +29,9 @@ def _features_from(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
 def train_from_csv(csv_path: Path, experiment_name: str) -> dict[str, float]:
     """Train RF on a CSV and log to MLflow (local file store)."""
     cfg.MLRUNS_DIR.mkdir(parents=True, exist_ok=True)
-    mlruns_dir = Path(cfg.MLRUNS_DIR).resolve()  # must be absolute
-    mlflow.set_tracking_uri(mlruns_dir.as_uri())
+    mlruns_dir = Path(cfg.MLRUNS_DIR).resolve()
+    mlflow.set_tracking_uri(mlruns_dir.as_uri())  # portable file:// URI
+
     mlflow.set_experiment(experiment_name)
 
     df = pd.read_csv(
@@ -36,7 +39,7 @@ def train_from_csv(csv_path: Path, experiment_name: str) -> dict[str, float]:
         usecols=cfg.USECOLS,
         dtype=cfg.DTYPES,
         parse_dates=["pickup_datetime"],
-        infer_datetime_format=True,
+        # infer_datetime_format=...  # <-- removed (deprecated)
         dayfirst=False,
     )
     X, y = _features_from(df)
@@ -58,11 +61,29 @@ def train_from_csv(csv_path: Path, experiment_name: str) -> dict[str, float]:
         rmse = float(np.sqrt(mean_squared_error(yte, pred)))
         mae  = float(mean_absolute_error(yte, pred))
         r2   = float(r2_score(yte, pred))
-
         mlflow.log_metric("rmse", rmse)
         mlflow.log_metric("mae",  mae)
         mlflow.log_metric("r2",   r2)
-        mlflow.sklearn.log_model(model, "model")
+
+        # ✅ add signature + input_example (no more warning)
+        input_example = Xtr.iloc[:5].copy()
+        signature = infer_signature(Xtr, model.predict(Xtr))
+
+        # ✅ use `name=` instead of deprecated artifact_path
+        # ✅ pin requirements to avoid pip-version warning
+        pip_reqs = [
+            f"mlflow=={mlflow.__version__}",
+            f"scikit-learn=={sklearn.__version__}",
+            f"pandas=={pd.__version__}",
+            f"numpy=={np.__version__}",
+        ]
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            name="model",
+            input_example=input_example,
+            signature=signature,
+            pip_requirements=pip_reqs,
+        )
 
     print(f"[TRAIN] {Path(csv_path).name}: RMSE={rmse:.2f}  MAE={mae:.2f}  R2={r2:.3f}")
     return {"rmse": rmse, "mae": mae, "r2": r2}
