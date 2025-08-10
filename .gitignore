@@ -3,3 +3,5 @@
 mlruns/
 *.pyc
 mlops/__pycache__/
+
+data/augmented/
