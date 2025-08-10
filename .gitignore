@@ -5,3 +5,5 @@ mlruns/
 mlops/__pycache__/
 
 data/augmented/
+
+airflow/.env
