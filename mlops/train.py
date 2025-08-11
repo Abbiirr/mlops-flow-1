@@ -40,6 +40,7 @@ def train_from_csv(csv_path: Path, experiment_name: str) -> dict[str, float]:
 
     mlruns_dir.mkdir(parents=True, exist_ok=True)
     mlruns_dir_resolved = mlruns_dir.resolve()
+    print(("[TRAIN] Using MLflow runs directory: ", mlruns_dir_resolved))
 
     # Set tracking URI to the resolved path
     mlflow.set_tracking_uri(f"file://{mlruns_dir_resolved}")
