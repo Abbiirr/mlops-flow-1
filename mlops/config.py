@@ -1,8 +1,13 @@
 # mlops/config.py
 from __future__ import annotations
 from pathlib import Path
+import os
 
-ROOT = Path(__file__).resolve().parents[1]
+# Fix for Docker: Use environment variable or fallback to app directory
+if os.environ.get('AIRFLOW__CORE__EXECUTOR'):  # Running in Airflow Docker
+    ROOT = Path('/opt/airflow/app')
+else:  # Local development
+    ROOT = Path(__file__).resolve().parents[1]
 
 # Data paths
 RAW_CSV = ROOT / "data" / "train.csv"
@@ -10,6 +15,7 @@ AUG_DIR = ROOT / "data" / "augmented"
 AUG_CSV = AUG_DIR / "train_aug.csv"
 
 # MLflow local file store (no server needed)
+# Use a path that's accessible within the container
 MLRUNS_DIR = ROOT / "mlruns"  # used as file:// URI
 
 # Augmentation & IO
