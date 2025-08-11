@@ -11,6 +11,21 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from . import config as cfg
 
+def _features_from(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    df["hour"]        = df["pickup_datetime"].dt.hour
+    df["day_of_week"] = df["pickup_datetime"].dt.dayofweek
+    df["distance"]    = np.sqrt(
+        (df["dropoff_longitude"] - df["pickup_longitude"])**2 +
+        (df["dropoff_latitude"]  - df["pickup_latitude"])**2
+    )
+    feats = [
+        "passenger_count","hour","day_of_week","distance",
+        "pickup_longitude","pickup_latitude","dropoff_longitude","dropoff_latitude"
+    ]
+    X, y = df[feats], df["trip_duration"]
+    mask = y < 18_000  # < 5 hours
+    return X[mask], y[mask]
+
 def train_from_csv(csv_path: Path, experiment_name: str) -> dict[str, float]:
     cfg.MLRUNS_DIR.mkdir(parents=True, exist_ok=True)
     mlruns_dir = Path(cfg.MLRUNS_DIR).resolve()
