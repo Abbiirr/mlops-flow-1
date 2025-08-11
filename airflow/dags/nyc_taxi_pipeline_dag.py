@@ -20,7 +20,7 @@ from mlops.train import train_from_csv
 def nyc_taxi_pipeline():
     @task()
     def baseline_train():
-        return train_from_csv(cfg.RAW_CSV, experiment_name="nyc-taxi-baseline")
+        return train_from_csv(cfg.RAW_CSV, experiment_name="nyc-taxi-baseline-1")
 
     @task()
     def write_augmented_csv():
@@ -29,7 +29,7 @@ def nyc_taxi_pipeline():
 
     @task()
     def train_on_augmented(_aug_path: str):
-        return train_from_csv(cfg.AUG_CSV, experiment_name="nyc-taxi-augmented")
+        return train_from_csv(cfg.AUG_CSV, experiment_name="nyc-taxi-augmented-1")
 
     # Orchestration
     metrics_baseline = baseline_train()
