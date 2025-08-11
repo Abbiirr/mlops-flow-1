@@ -1,6 +1,7 @@
 # mlops/train.py
 from __future__ import annotations
 from pathlib import Path
+import os
 import numpy as np
 import pandas as pd
 import mlflow, mlflow.sklearn
@@ -11,37 +12,46 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from . import config as cfg
 
+
 def _features_from(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    df["hour"]        = df["pickup_datetime"].dt.hour
+    df["hour"] = df["pickup_datetime"].dt.hour
     df["day_of_week"] = df["pickup_datetime"].dt.dayofweek
-    df["distance"]    = np.sqrt(
-        (df["dropoff_longitude"] - df["pickup_longitude"])**2 +
-        (df["dropoff_latitude"]  - df["pickup_latitude"])**2
+    df["distance"] = np.sqrt(
+        (df["dropoff_longitude"] - df["pickup_longitude"]) ** 2 +
+        (df["dropoff_latitude"] - df["pickup_latitude"]) ** 2
     )
     feats = [
-        "passenger_count","hour","day_of_week","distance",
-        "pickup_longitude","pickup_latitude","dropoff_longitude","dropoff_latitude"
+        "passenger_count", "hour", "day_of_week", "distance",
+        "pickup_longitude", "pickup_latitude", "dropoff_longitude", "dropoff_latitude"
     ]
     X, y = df[feats], df["trip_duration"]
     mask = y < 18_000  # < 5 hours
     return X[mask], y[mask]
 
+
 def train_from_csv(csv_path: Path, experiment_name: str) -> dict[str, float]:
-    cfg.MLRUNS_DIR.mkdir(parents=True, exist_ok=True)
-    mlruns_dir = Path(cfg.MLRUNS_DIR).resolve()
-    mlflow.set_tracking_uri(mlruns_dir.as_uri())
+    """Train RF on a CSV and log to MLflow (local file store)."""
 
-    # ensure experiment points to the container-writable artifact root
-    from mlflow.tracking import MlflowClient
-    def ensure_experiment(name: str, root: Path):
-        c = MlflowClient()
-        if c.get_experiment_by_name(name) is None:
-            c.create_experiment(name, artifact_location=root.resolve().as_uri())
-        mlflow.set_experiment(name)
-    ensure_experiment(experiment_name, mlruns_dir)
+    # Use explicit path for MLflow runs directory
+    if os.environ.get('AIRFLOW__CORE__EXECUTOR'):  # Running in Airflow Docker
+        mlruns_dir = Path('/opt/airflow/app/mlruns')
+    else:  # Local development
+        mlruns_dir = cfg.MLRUNS_DIR
 
-    df = pd.read_csv(csv_path, usecols=cfg.USECOLS, dtype=cfg.DTYPES,
-                     parse_dates=["pickup_datetime"], dayfirst=False)
+    mlruns_dir.mkdir(parents=True, exist_ok=True)
+    mlruns_dir_resolved = mlruns_dir.resolve()
+
+    # Set tracking URI to the resolved path
+    mlflow.set_tracking_uri(f"file://{mlruns_dir_resolved}")
+    mlflow.set_experiment(experiment_name)
+
+    df = pd.read_csv(
+        csv_path,
+        usecols=cfg.USECOLS,
+        dtype=cfg.DTYPES,
+        parse_dates=["pickup_datetime"],
+        dayfirst=False,
+    )
     X, y = _features_from(df)
     Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.20, random_state=cfg.SEED)
 
@@ -52,20 +62,24 @@ def train_from_csv(csv_path: Path, experiment_name: str) -> dict[str, float]:
         mlflow.log_param("augment_source", Path(csv_path).name)
         mlflow.log_param("n_training_samples", len(Xtr))
 
-        model = RandomForestRegressor(n_estimators=80, max_depth=12,
-                                      n_jobs=1, random_state=cfg.SEED)
+        model = RandomForestRegressor(
+            n_estimators=80, max_depth=12, n_jobs=-1, random_state=cfg.SEED
+        )
         model.fit(Xtr, ytr)
 
         pred = model.predict(Xte)
         rmse = float(np.sqrt(mean_squared_error(yte, pred)))
-        mae  = float(mean_absolute_error(yte, pred))
-        r2   = float(r2_score(yte, pred))
+        mae = float(mean_absolute_error(yte, pred))
+        r2 = float(r2_score(yte, pred))
         mlflow.log_metric("rmse", rmse)
-        mlflow.log_metric("mae",  mae)
-        mlflow.log_metric("r2",   r2)
+        mlflow.log_metric("mae", mae)
+        mlflow.log_metric("r2", r2)
 
+        # Add signature + input_example
         input_example = Xtr.iloc[:5].copy()
         signature = infer_signature(Xtr, model.predict(Xtr))
+
+        # Pin requirements to avoid pip-version warning
         pip_reqs = [
             f"mlflow=={mlflow.__version__}",
             f"scikit-learn=={sklearn.__version__}",
@@ -74,7 +88,7 @@ def train_from_csv(csv_path: Path, experiment_name: str) -> dict[str, float]:
         ]
         mlflow.sklearn.log_model(
             sk_model=model,
-            name="model",                      # modern param
+            name="model",
             input_example=input_example,
             signature=signature,
             pip_requirements=pip_reqs,
