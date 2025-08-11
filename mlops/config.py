@@ -10,13 +10,19 @@ else:  # Local development
     ROOT = Path(__file__).resolve().parents[1]
 
 # Data paths
-RAW_CSV = ROOT / "data" / "train.csv"
-AUG_DIR = ROOT / "data" / "augmented"
+DATA_DIR = ROOT / "data"
+RAW_CSV = DATA_DIR / "train.csv"
+TRAIN_CSV = DATA_DIR / "train_split.csv"
+TEST_CSV = DATA_DIR / "test_split.csv"
+AUG_DIR = DATA_DIR / "augmented"
 AUG_CSV = AUG_DIR / "train_aug.csv"
 
 # MLflow local file store (no server needed)
-# Use a path that's accessible within the container
 MLRUNS_DIR = ROOT / "mlruns"  # used as file:// URI
+
+# Train/Test split configuration
+TEST_SIZE = 0.001  # 0.1% for test (very small as requested)
+TRAIN_SIZE = 1 - TEST_SIZE
 
 # Augmentation & IO
 CHUNK_SIZE   = 200_000        # adjust for your RAM
