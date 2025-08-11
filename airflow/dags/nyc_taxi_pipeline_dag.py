@@ -14,7 +14,7 @@ from mlops.train import train_from_csv
     dag_id="nyc_taxi_pipeline",
     schedule="0 2 * * *",  # run daily at 02:00 UTC (adjust as needed)
     start_date=pendulum.datetime(2025, 8, 1, tz="UTC"),
-    catchup=False,
+    catchup=True,
     tags=["mlops", "mlflow", "nyc-taxi"],
 )
 def nyc_taxi_pipeline():
