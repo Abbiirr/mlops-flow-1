@@ -9,3 +9,6 @@ data/augmented/
 airflow/.env
 
 airflow/config/airflow.cfg
+
+airflow/config/
+airflow/logs/
