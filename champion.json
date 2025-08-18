@@ -1,0 +1,33 @@
+{
+  "decided_at": "2025-08-18T06:36:39.342272Z",
+  "train_samples": 728592,
+  "test_samples": 730,
+  "baseline": {
+    "rmse": 330.48864428474405,
+    "mae": 207.75405302240162,
+    "r2": 0.7490003393584674,
+    "run_id": "659b117f1ed54b29a7073719162fa28c",
+    "experiment_id": "732952127925178269",
+    "model_uri": "runs:/659b117f1ed54b29a7073719162fa28c/model"
+  },
+  "augmented": {
+    "rmse": 326.52730587110494,
+    "mae": 207.69091513820246,
+    "r2": 0.755790160515347,
+    "run_id": "d22f2d8ab0084906853c0a6b24d20f45",
+    "experiment_id": "253518549998965550",
+    "model_uri": "runs:/d22f2d8ab0084906853c0a6b24d20f45/model"
+  },
+  "improvement": {
+    "rmse": 3.961338413639112,
+    "mae": 0.06313788419916477,
+    "r2": 0.006789821156879539
+  },
+  "champion": "augmented",
+  "champion_model_uri": "runs:/d22f2d8ab0084906853c0a6b24d20f45/model",
+  "artifacts": {
+    "train_csv": "C:\\Abir\\projects\\ai\\mlops-flow-1\\data\\train_split.csv",
+    "aug_csv": "C:\\Abir\\projects\\ai\\mlops-flow-1\\data\\augmented\\train_aug.csv",
+    "mlruns_dir": "C:\\Abir\\projects\\ai\\mlops-flow-1\\mlruns"
+  }
+}

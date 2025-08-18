@@ -12,3 +12,4 @@ airflow/config/airflow.cfg
 
 airflow/config/
 airflow/logs/
+models/
