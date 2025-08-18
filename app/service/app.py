@@ -15,9 +15,10 @@ from pydantic import BaseModel, field_validator
 
 from mlops import config as cfg  # local mlruns default
 
-MODEL_URI_ENV = "MODEL_URI"                 # optional override
+MODEL_URI_ENV = "MODEL_URI"  # optional override
 LOCAL_CHAMPION_DIR = Path("models/champion")
 CHAMPION_JSON = Path(os.getenv("CHAMPION_JSON", "champion.json"))
+
 
 # --------- request/response schema ----------
 class PredictRequest(BaseModel):
@@ -35,6 +36,7 @@ class PredictRequest(BaseModel):
             raise ValueError("passenger_count must be >= 1")
         return v
 
+
 # --------- feature engineering (must mirror training) ----------
 def make_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -43,7 +45,7 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
     df["day_of_week"] = ts.dt.dayofweek
     df["distance"] = np.sqrt(
         (df["dropoff_longitude"] - df["pickup_longitude"]) ** 2 +
-        (df["dropoff_latitude"]  - df["pickup_latitude"]) ** 2
+        (df["dropoff_latitude"] - df["pickup_latitude"]) ** 2
     )
     cols = [
         "passenger_count", "hour", "day_of_week", "distance",
@@ -53,13 +55,12 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # 🔐 Enforce the model’s signature types (no narrowing at predict time)
     X["passenger_count"] = X["passenger_count"].astype("int32")
-    X["hour"]            = X["hour"].astype("int32")
-    X["day_of_week"]     = X["day_of_week"].astype("int32")
+    X["hour"] = X["hour"].astype("int32")
+    X["day_of_week"] = X["day_of_week"].astype("int32")
     float_cols = ["distance", "pickup_longitude", "pickup_latitude", "dropoff_longitude", "dropoff_latitude"]
     X[float_cols] = X[float_cols].astype("float32")
 
     return X
-
 
 
 # --------- helpers ----------
@@ -70,6 +71,7 @@ def _maybe_set_tracking_from(path_like: str | None) -> None:
     p = Path(path_like).resolve()
     p.mkdir(parents=True, exist_ok=True)
     mlflow.set_tracking_uri(p.as_uri())  # file:///... on all OSes
+
 
 def _resolve_from_champion_json() -> tuple[str | None, dict]:
     """Return (model_uri, info_dict) if champion.json exists and is usable."""
@@ -87,6 +89,7 @@ def _resolve_from_champion_json() -> tuple[str | None, dict]:
     # Set tracking if mlruns_dir present
     _maybe_set_tracking_from((data.get("artifacts") or {}).get("mlruns_dir"))
     return uri, data
+
 
 def resolve_model_uri() -> tuple[str, dict]:
     """
@@ -114,25 +117,31 @@ def resolve_model_uri() -> tuple[str, dict]:
     # 3) best r2 in local mlruns
     mlflow.set_tracking_uri(cfg.MLRUNS_DIR.resolve().as_uri())
     client = MlflowClient()
-    best_run = None
+
+    best_row = None
     best_r2 = float("-inf")
+
     for exp in client.search_experiments():
         runs = mlflow.search_runs(
             experiment_ids=[exp.experiment_id],
-            order_by=["metrics.r2 DESC"],
+            order_by=["metrics.r2 DESC"],  # documented ordering
             max_results=1
         )
-        if len(runs) == 1:
+        if runs is not None and not runs.empty:
             r = runs.iloc[0]
             r2 = r.get("metrics.r2")
-            if r2 is not None and r2 > best_r2:
-                best_r2 = r2
-                best_run = r
-    if not best_run:
+            if r2 is not None and float(r2) > best_r2:
+                best_r2 = float(r2)
+                best_row = r
+
+    if best_row is None:  # ✅ don't do: if not best_row
         raise RuntimeError(
             "No MLflow runs found with metric r2; ensure champion.json exists or set MODEL_URI or create models/champion/."
         )
-    return f"runs:/{best_run.run_id}/model", {"source": "search:max-r2", "run_id": best_run.run_id, "r2": best_r2}
+
+    run_id = str(best_row["run_id"])  # Series index, not attribute
+    return f"runs:/{run_id}/model", {"source": "search:max-r2", "run_id": run_id, "r2": best_r2}
+
 
 # --------- loader ----------
 class _Champion:
@@ -150,19 +159,23 @@ class _Champion:
         X = make_features(df)
         return self.model.predict(X)
 
+
 champion = _Champion()
 champion.load()
 
 # --------- app ----------
 app = FastAPI(title="NYC Taxi — Champion API", version="1.0")
 
+
 @app.get("/health")
 def health():
     return {"status": "ok", "model_uri": champion.uri, "source": champion.info.get("source")}
 
+
 @app.get("/where")
 def where():
     return {"resolved_uri": champion.uri, "info": champion.info}
+
 
 @app.post("/predict")
 def predict_one(req: PredictRequest):
@@ -172,6 +185,7 @@ def predict_one(req: PredictRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @app.post("/predict_batch")
 def predict_batch(reqs: list[PredictRequest]):
     try:
@@ -179,6 +193,7 @@ def predict_batch(reqs: list[PredictRequest]):
         return {"predictions": vals, "model_uri": champion.uri}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.post("/reload")
 def reload_model():
