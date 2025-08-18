@@ -4,10 +4,13 @@ import pendulum
 
 # Airflow 3 public interface:
 from airflow.sdk import dag, task  # Airflow 3.0+ public namespace
+
+from app.service.app import champion
 # If you're on Airflow 2.x, use: from airflow.decorators import dag, task
 
 # Import your project code (mounted at /opt/airflow/app)
 from mlops import config as cfg
+from mlops.champion import write_champion
 from mlops.data_split import split_data_to_disk
 from mlops.augment import augment_to_disk
 from mlops.train import train_from_csv
@@ -92,6 +95,14 @@ def nyc_taxi_pipeline_v2():
         print(f"  RMSE: {improvement['rmse']:.2f} (lower is better)")
         print(f"  MAE: {improvement['mae']:.2f} (lower is better)")
         print(f"  R²: {improvement['r2']:.3f} (higher is better)")
+
+        champion = "augmented" if augmented_metrics['r2'] > baseline_metrics['r2'] else "baseline"
+
+        if champion == "augmented":
+            best_run_id, best_r2 = augmented_metrics["run_id"], augmented_metrics["r2"]
+        else:
+            best_run_id, best_r2 = baseline_metrics["run_id"], baseline_metrics["r2"]
+        persisted = write_champion(best_run_id, "r2", best_r2)
 
         return {
             "baseline": baseline_metrics,
