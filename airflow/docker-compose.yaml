@@ -73,6 +73,10 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     PYTHONPATH: '/opt/airflow/app'
+    MLFLOW_TRACKING_URI: http://mlflow:5000
+    MLFLOW_REGISTRY_URI: http://mlflow:5000
+    MODEL_NAME: nyc-taxi-regressor
+    REGISTRY_ALIAS: champion
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
@@ -96,6 +100,7 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -333,5 +338,25 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  # add to docker-compose.yml
+  mlflow:
+    image: python:3.11-slim
+    working_dir: /srv
+    volumes:
+      - ./mlartifacts:/mlartifacts
+    command: >
+      bash -lc "
+      pip install --no-cache-dir mlflow psycopg2-binary &&
+      mlflow server
+        --backend-store-uri postgresql+psycopg2://mlflow:mlflow@postgres:5432/mlflow
+        --default-artifact-root file:///mlartifacts
+        --host 0.0.0.0 --port 5000
+      "
+    ports: [ "5000:5000" ]
+    depends_on: [ postgres ]
+
+
 volumes:
   postgres-db-volume:
+
+
