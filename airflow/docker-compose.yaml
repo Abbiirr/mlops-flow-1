@@ -344,14 +344,10 @@ services:
     working_dir: /srv
     volumes:
       - ./mlartifacts:/mlartifacts
-    command: >
+    command: |
       sh -c "
       pip install --no-cache-dir mlflow psycopg2-binary &&
-      mlflow server \
-        --backend-store-uri postgresql+psycopg2://airflow:airflow@postgres:5432/airflow \
-        --default-artifact-root file:///mlartifacts \
-        --host 0.0.0.0 \
-        --port 5000
+      mlflow server --backend-store-uri postgresql+psycopg2://airflow:airflow@postgres:5432/airflow --default-artifact-root file:///mlartifacts --host 0.0.0.0 --port 5000
       "
     ports:
       - "0.0.0.0:6200:5000"
