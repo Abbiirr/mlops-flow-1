@@ -1,21 +1,20 @@
 FROM python:3.11-slim
 
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# System tools useful for debugging & healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl net-tools iproute2 procps \
+ && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# MLflow + Postgres driver
 RUN pip install --no-cache-dir mlflow psycopg2-binary
 
 WORKDIR /srv
-
 EXPOSE 5000
 
-# Use exec to ensure proper signal handling
+# Use exec form so signals are handled properly
 ENTRYPOINT ["mlflow", "server"]
-CMD ["--backend-store-uri", "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow", \
+# Default args can be overridden by compose
+CMD ["--backend-store-uri", "postgresql+psycopg2://mlflow:mlflow@postgres:5432/mlflow", \
      "--default-artifact-root", "file:///mlartifacts", \
      "--host", "0.0.0.0", \
      "--port", "5000"]
