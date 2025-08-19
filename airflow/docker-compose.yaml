@@ -348,9 +348,6 @@ services:
     ports:
       - "6200:5000"                       # Host 6200 -> container 5000
     # If you created mlflow DB/user via 01-mlflow.sql, this matches the Dockerfile CMD
-    environment:
-    # uncomment if you prefer to pass the URI via env and override CMD:
-    # MLFLOW_BACKEND_STORE_URI: postgresql+psycopg2://mlflow:mlflow@postgres:5432/mlflow
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://localhost:5000/version" ]
       interval: 30s
