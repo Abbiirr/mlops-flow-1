@@ -344,15 +344,24 @@ services:
     working_dir: /srv
     volumes:
       - ./mlartifacts:/mlartifacts
-    command: |
+    command: >
       sh -c "
-      pip install --no-cache-dir mlflow psycopg2-binary &&
-      mlflow server --backend-store-uri postgresql+psycopg2://airflow:airflow@postgres:5432/airflow --default-artifact-root file:///mlartifacts --host 0.0.0.0 --port 5000
+        set -e
+        apt-get update &&
+        apt-get install -y --no-install-recommends curl net-tools iproute2 procps &&
+        rm -rf /var/lib/apt/lists/* &&
+        pip install --no-cache-dir mlflow psycopg2-binary &&
+        mlflow server
+          --backend-store-uri postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+          --default-artifact-root file:///mlartifacts
+          --host 0.0.0.0
+          --port 5000
       "
     ports:
-      - "0.0.0.0:6200:5000"
+      - "6200:5000"        # host:container (0.0.0.0 is implied on host)
     healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://localhost:5000/health" ]
+      # tracking server: use /version (not /health)
+      test: [ "CMD", "curl", "--fail", "http://localhost:5000/version" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -360,6 +369,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
 
 
 
