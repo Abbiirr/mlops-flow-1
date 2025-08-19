@@ -340,11 +340,11 @@ services:
 
   # add to docker-compose.yml
   mlflow:
-    image: python:3.11-slim
-    working_dir: /srv
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
     volumes:
       - ./mlartifacts:/mlartifacts
-    command: sh -c "apt-get update && apt-get install -y --no-install-recommends curl && pip install --no-cache-dir mlflow psycopg2-binary && exec mlflow server --backend-store-uri postgresql+psycopg2://airflow:airflow@postgres:5432/airflow --default-artifact-root file:///mlartifacts --host 0.0.0.0 --port 5000"
     ports:
       - "6200:5000"
     healthcheck:
@@ -352,7 +352,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
