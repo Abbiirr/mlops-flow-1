@@ -73,8 +73,8 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     PYTHONPATH: '/opt/airflow/app'
-    MLFLOW_TRACKING_URI: http://mlflow:5000
-    MLFLOW_REGISTRY_URI: http://mlflow:5000
+    MLFLOW_TRACKING_URI: "http://mlflow:5000"
+    MLFLOW_REGISTRY_URI: "http://mlflow:5000"
     MODEL_NAME: nyc-taxi-regressor
     REGISTRY_ALIAS: champion
   volumes:
