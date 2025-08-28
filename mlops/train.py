@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from . import config as cfg
+from mlflow.tracking import MlflowClient
 
 
 def _load_clean_csv(csv_path: Path) -> pd.DataFrame:
@@ -127,6 +128,36 @@ def _log_sklearn_model(model, X_for_sig: pd.DataFrame, signature, input_example,
             pip_requirements=pip_reqs,
         )
 
+def _save_model_to_mlflow(
+    run_id: str,
+    rmse: float,
+    mae: float,
+    r2: float,
+    csv_path: Path,
+    Xtr: pd.DataFrame,
+    Xte: pd.DataFrame,
+    MLFLOW_URI: str,
+):
+    mv = mlflow.register_model(f"runs:/{run_id}/model", "nyc-taxi-regressor")
+    client = MlflowClient(tracking_uri=MLFLOW_URI)
+    client.update_model_version(
+        name="nyc-taxi-regressor",
+        version=mv.version,
+        description=(
+            f"RMSE={rmse:.3f}, MAE={mae:.3f}, R2={r2:.3f}; "
+            f"data={Path(csv_path).name}; train_n={len(Xtr)}; val_n={len(Xte)}"
+        ),
+    )
+    client.set_model_version_tag("nyc-taxi-regressor", mv.version, "rmse", f"{rmse:.6f}")
+    client.set_model_version_tag("nyc-taxi-regressor", mv.version, "mae", f"{mae:.6f}")
+    client.set_model_version_tag("nyc-taxi-regressor", mv.version, "r2", f"{r2:.6f}")
+    client.set_model_version_tag("nyc-taxi-regressor", mv.version, "sklearn", sklearn.__version__)
+    client.set_model_version_tag("nyc-taxi-regressor", mv.version, "features", ",".join(Xtr.columns))
+
+
+# optional: add a run note shown in UI
+mlflow.set_tag("mlflow.note.content",
+               f"RandomForest(n_estimators=80,max_depth=12). Features={list(Xtr.columns)}. Data={Path(csv_path).name}.")
 def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-experiment") -> dict[str, float]:
     """Train RF on a CSV and log to MLflow (local file store)."""
     MLFLOW_URI = "http://mlflow:5000"
@@ -142,6 +173,7 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
     mlflow.set_tracking_uri(MLFLOW_URI)
     print("[TRAIN] MLflow tracking:", mlflow.get_tracking_uri())
     mlflow.set_experiment(experiment_name)
+    _save_model_to_mlflow()
 
     print(f"[TRAIN] Loading data from {Path(csv_path).name}...")
     df = _load_clean_csv(csv_path)
@@ -185,7 +217,7 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
             f"numpy=={np.__version__}",
         ]
         _log_sklearn_model(model, Xtr, signature, input_example, pip_reqs)
-        mlflow.register_model(f"runs:/{run_id}/model", "nyc-taxi-regressor")
+        _save_model_to_mlflow(run_id, rmse, mae, r2, csv_path, Xtr, Xte, MLFLOW_URI)
 
     print(f"[TRAIN] {Path(csv_path).name}: RMSE={rmse:.2f}  MAE={mae:.2f}  R2={r2:.3f}")
 
