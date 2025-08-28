@@ -397,5 +397,6 @@ volumes:
   postgres-db-volume:
   mlflow_data:
   mlflow_artifacts:
+  minio_data:
 
 
