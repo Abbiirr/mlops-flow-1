@@ -185,6 +185,7 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
             f"numpy=={np.__version__}",
         ]
         _log_sklearn_model(model, Xtr, signature, input_example, pip_reqs)
+        mlflow.register_model(f"runs:/{run_id}/model", "nyc-taxi-regressor")
 
     print(f"[TRAIN] {Path(csv_path).name}: RMSE={rmse:.2f}  MAE={mae:.2f}  R2={r2:.3f}")
 
