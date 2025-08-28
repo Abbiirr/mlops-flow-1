@@ -376,15 +376,22 @@ services:
       context: .
       dockerfile: Dockerfile.mlflow
     environment:
-      # override defaults if your hostnames/creds differ
       MLFLOW_BACKEND_URI: postgresql+psycopg2://airflow:airflow@postgres:5432/mlflow
       MLFLOW_S3_ENDPOINT_URL: http://airflow-minio:9000
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin123
+      AWS_DEFAULT_REGION: us-east-1
       MLFLOW_ARTIFACTS_BUCKET: mlflow-artifacts
-    ports: [ "6200:5000" ]
-    depends_on: [ postgres ]
-    # no command here — Dockerfile handles it
+    ports:
+      - "6200:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: always
 
 
 
