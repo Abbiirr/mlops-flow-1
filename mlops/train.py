@@ -86,10 +86,34 @@ def _features_from(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     mask = y < 18_000  # < 5 hours
     return X[mask], y[mask]
 
+def _log_sklearn_model(model, X_for_sig: pd.DataFrame, signature, input_example, pip_reqs):
+    """
+    MLflow 3.x deprecates `artifact_path` in favor of `name`.
+    Use `name="model"` when available; fall back to `artifact_path="model"` for older MLflow.
+    """
+    try:
+        # Newer MLflow (3.x): prefer `name`
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            name="model",
+            input_example=input_example,
+            signature=signature,
+            pip_requirements=pip_reqs,
+        )
+    except TypeError:
+        # Older MLflow: use artifact_path
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            artifact_path="model",
+            input_example=input_example,
+            signature=signature,
+            pip_requirements=pip_reqs,
+        )
 
 def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-experiment") -> dict[str, float]:
     """Train RF on a CSV and log to MLflow (local file store)."""
-
+    MLFLOW_URI = "http://mlflow:5000"
+    mlflow.set_tracking_uri(MLFLOW_URI)
     # Use train split by default
     if csv_path is None:
         csv_path = cfg.TRAIN_CSV
@@ -97,26 +121,11 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
             print(f"[TRAIN] Warning: {csv_path.name} not found, using {cfg.RAW_CSV.name}")
             csv_path = cfg.RAW_CSV
 
-    # Select MLflow runs directory (Airflow container vs local dev)
-    if os.environ.get("AIRFLOW__CORE__EXECUTOR"):
-        mlruns_dir = Path("/opt/airflow/app/mlruns")
-    else:
-        mlruns_dir = Path(cfg.MLRUNS_DIR)
-
-    # Respect MLflow tracking server if provided (Airflow sets MLFLOW_TRACKING_URI)
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
-
-    if tracking_uri:
-        mlflow.set_tracking_uri(tracking_uri)  # e.g., http://mlflow:5000
-    else:
-     # optional local fallback for non-Airflow dev runs
-        mlruns_dir = mlruns_dir.resolve()
-        mlruns_dir.mkdir(parents=True, exist_ok=True)
-        mlflow.set_tracking_uri(mlruns_dir.as_uri())
+        # Hard-coded MLflow URI — no env, no local file fallback
+    mlflow.set_tracking_uri(MLFLOW_URI)
     print("[TRAIN] MLflow tracking:", mlflow.get_tracking_uri())
     mlflow.set_experiment(experiment_name)
 
-    # Read + clean data
     print(f"[TRAIN] Loading data from {Path(csv_path).name}...")
     df = _load_clean_csv(csv_path)
     print(f"[TRAIN] Loaded {len(df):,} clean samples")
@@ -126,7 +135,7 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
 
     with mlflow.start_run():
         run_id = mlflow.active_run().info.run_id
-        artifact_root = mlflow.get_artifact_uri()  # for debugging / curiosity
+        _ = mlflow.get_artifact_uri()
 
         mlflow.log_param("model_type", "RandomForest")
         mlflow.log_param("n_estimators", 80)
@@ -149,34 +158,35 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
         mlflow.log_metric("mae", mae)
         mlflow.log_metric("r2", r2)
 
-        # Add signature + input_example
         input_example = Xtr.iloc[:5].copy()
         signature = infer_signature(Xtr, model.predict(Xtr))
 
-        # Pin requirements to avoid pip-version warning
         pip_reqs = [
             f"mlflow=={mlflow.__version__}",
             f"scikit-learn=={sklearn.__version__}",
             f"pandas=={pd.__version__}",
             f"numpy=={np.__version__}",
         ]
-        mlflow.sklearn.log_model(
-            sk_model=model,
-            artifact_path="model",
-            input_example=input_example,
-            signature=signature,
-            pip_requirements=pip_reqs,
-        )
+        _log_sklearn_model(model, Xtr, signature, input_example, pip_reqs)
 
     print(f"[TRAIN] {Path(csv_path).name}: RMSE={rmse:.2f}  MAE={mae:.2f}  R2={r2:.3f}")
 
     from mlflow.tracking import MlflowClient
-    client = MlflowClient(tracking_uri=mlflow.get_tracking_uri())
+    client = MlflowClient(tracking_uri=MLFLOW_URI)
     exp_id = client.get_run(run_id).info.experiment_id
 
+    import logging
+    logger = logging.getLogger("airflow.task")
+
+    logger.info("MLflow tracking URI: %s", mlflow.get_tracking_uri())
+    logger.info("Experiment name: %s", experiment_name)
+    logger.info("Run ID: %s", run_id)
     return {
         "rmse": rmse, "mae": mae, "r2": r2,
         "run_id": run_id,
         "experiment_id": exp_id,
         "model_uri": f"runs:/{run_id}/model"
     }
+
+
+
