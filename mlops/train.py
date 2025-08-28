@@ -107,9 +107,17 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
     mlruns_dir.mkdir(parents=True, exist_ok=True)
 
     # ✅ Correct, cross-platform file URI (file:///C:/... on Windows)
-    mlruns_dir = Path("/opt/airflow/app/mlruns")
-    mlflow.set_tracking_uri(mlruns_dir.as_uri())  # -> file:///opt/airflow/app/mlruns
-    print(f"[TRAIN] Using MLflow runs directory: {mlruns_dir}")
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)  # e.g., http://mlflow:5000
+    else:
+        # optional local fallback for dev
+        mlruns_dir = (Path("/opt/airflow/app/mlruns")
+                      if os.getenv("AIRFLOW__CORE__EXECUTOR")
+                      else Path(cfg.MLRUNS_DIR))
+        mlruns_dir.mkdir(parents=True, exist_ok=True)
+        mlflow.set_tracking_uri(mlruns_dir.resolve().as_uri())
+    print("[TRAIN] MLflow tracking:", mlflow.get_tracking_uri())
     mlflow.set_experiment(experiment_name)
 
     # Read + clean data
