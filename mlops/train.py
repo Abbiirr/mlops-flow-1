@@ -103,20 +103,16 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
     else:
         mlruns_dir = Path(cfg.MLRUNS_DIR)
 
-    mlruns_dir = mlruns_dir.resolve()
-    mlruns_dir.mkdir(parents=True, exist_ok=True)
+    # Respect MLflow tracking server if provided (Airflow sets MLFLOW_TRACKING_URI)
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
 
-    # ✅ Correct, cross-platform file URI (file:///C:/... on Windows)
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)  # e.g., http://mlflow:5000
     else:
-        # optional local fallback for dev
-        mlruns_dir = (Path("/opt/airflow/app/mlruns")
-                      if os.getenv("AIRFLOW__CORE__EXECUTOR")
-                      else Path(cfg.MLRUNS_DIR))
+     # optional local fallback for non-Airflow dev runs
+        mlruns_dir = mlruns_dir.resolve()
         mlruns_dir.mkdir(parents=True, exist_ok=True)
-        mlflow.set_tracking_uri(mlruns_dir.resolve().as_uri())
+        mlflow.set_tracking_uri(mlruns_dir.as_uri())
     print("[TRAIN] MLflow tracking:", mlflow.get_tracking_uri())
     mlflow.set_experiment(experiment_name)
 
@@ -175,7 +171,7 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
     print(f"[TRAIN] {Path(csv_path).name}: RMSE={rmse:.2f}  MAE={mae:.2f}  R2={r2:.3f}")
 
     from mlflow.tracking import MlflowClient
-    client = MlflowClient()
+    client = MlflowClient(tracking_uri=mlflow.get_tracking_uri())
     exp_id = client.get_run(run_id).info.experiment_id
 
     return {
