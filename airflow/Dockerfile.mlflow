@@ -1,19 +1,44 @@
+# Dockerfile.mlflow
 FROM python:3.11-slim
 
-# Tools useful for debugging/healthchecks
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl net-tools iproute2 procps \
- && rm -rf /var/lib/apt/lists/*
+# (Optional) base tools
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# MLflow + Postgres driver
-RUN pip install --no-cache-dir mlflow psycopg2-binary
+# MLflow + deps for Postgres + S3/MinIO
+# Docs recommend installing mlflow + psycopg2 + boto3 for remote server + S3.
+# Ref: mlflow remote-server tutorial
+RUN pip install --no-cache-dir mlflow psycopg2-binary boto3
 
-WORKDIR /srv
+# ---- Runtime configuration (override at run time as needed) ----
+# Where MLflow stores metadata (runs, params, metrics)
+ENV MLFLOW_BACKEND_URI="postgresql+psycopg2://airflow:airflow@postgres:5432/mlflow"
+
+# MinIO endpoint & credentials (server-side only)
+# Ref: custom S3 endpoints + MinIO
+ENV MLFLOW_S3_ENDPOINT_URL="http://minio:9000"
+ENV AWS_ACCESS_KEY_ID="minioadmin"
+ENV AWS_SECRET_ACCESS_KEY="minioadmin123"
+ENV AWS_DEFAULT_REGION="us-east-1"
+
+# Bucket where artifacts are stored
+ENV MLFLOW_ARTIFACTS_BUCKET="mlflow-artifacts"
+
+# Network bind
+ENV MLFLOW_HOST="0.0.0.0"
+ENV MLFLOW_PORT="5000"
+
+# Entry script (no compose command needed)
+RUN printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'set -euo pipefail' \
+  'echo "Starting MLflow server with proxied artifacts to s3://${MLFLOW_ARTIFACTS_BUCKET} at ${MLFLOW_S3_ENDPOINT_URL}"' \
+  'exec mlflow server \' \
+  '  --host "${MLFLOW_HOST}" \' \
+  '  --port "${MLFLOW_PORT}" \' \
+  '  --backend-store-uri "${MLFLOW_BACKEND_URI}" \' \
+  '  --serve-artifacts \' \
+  '  --artifacts-destination "s3://${MLFLOW_ARTIFACTS_BUCKET}"' \
+  > /usr/local/bin/start-mlflow.sh && chmod +x /usr/local/bin/start-mlflow.sh
+
 EXPOSE 5000
-
-# Ensure the artifact dir exists (server writes here when proxying)
-RUN mkdir -p /mlartifacts
-
-# ENTRYPOINT = executable; CMD = default args
-ENTRYPOINT ["mlflow", "server"]
-CMD ["--host","0.0.0.0","--port","5000","--backend-store-uri","postgresql+psycopg2://airflow:airflow@postgres:5432/mlflow","--serve-artifacts","--artifacts-destination","s3://mlflow-artifacts"]
+ENTRYPOINT ["/usr/local/bin/start-mlflow.sh"]

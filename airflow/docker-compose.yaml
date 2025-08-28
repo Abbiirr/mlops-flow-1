@@ -343,29 +343,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.mlflow
-    volumes:
-      - mlflow_data:/data
-      - mlflow_artifacts:/mlartifacts
     environment:
-      # Tell MLflow/boto3 how to reach MinIO and with what creds
+      # override defaults if your hostnames/creds differ
+      MLFLOW_BACKEND_URI: postgresql+psycopg2://airflow:airflow@postgres:5432/mlflow
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin123
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-      AWS_DEFAULT_REGION: us-east-1
-      # Optional but helpful for some MinIO setups:
-      # AWS_S3_ADDRESSING_STYLE: path
-      # AWS_S3_SIGNATURE_VERSION: s3v4
-    ports:
-      - "6200:5000"           # host:container
-    healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://localhost:5000/version" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    depends_on:
-      postgres:
-        condition: service_healthy
+      MLFLOW_ARTIFACTS_BUCKET: mlflow-artifacts
+    ports: [ "6200:5000" ]
+    depends_on: [ postgres, minio ]
+    # no command here — Dockerfile handles it
+
 
 
 
