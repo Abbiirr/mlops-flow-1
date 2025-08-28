@@ -107,7 +107,8 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
     mlruns_dir.mkdir(parents=True, exist_ok=True)
 
     # ✅ Correct, cross-platform file URI (file:///C:/... on Windows)
-    mlflow.set_tracking_uri(mlruns_dir.as_uri())
+    mlruns_dir = Path("/opt/airflow/app/mlruns")
+    mlflow.set_tracking_uri(mlruns_dir.as_uri())  # -> file:///opt/airflow/app/mlruns
     print(f"[TRAIN] Using MLflow runs directory: {mlruns_dir}")
     mlflow.set_experiment(experiment_name)
 
