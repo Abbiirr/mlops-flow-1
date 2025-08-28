@@ -344,7 +344,8 @@ services:
       context: .
       dockerfile: Dockerfile.mlflow
     volumes:
-      - ./mlartifacts:/mlartifacts
+      - mlflow_data:/data
+      - mlflow_artifacts:/mlartifacts
     ports:
       - "6200:5000"                       # Host 6200 -> container 5000
     # If you created mlflow DB/user via 01-mlflow.sql, this matches the Dockerfile CMD
@@ -362,7 +363,10 @@ services:
 
 
 
+
 volumes:
   postgres-db-volume:
+  mlflow_data:
+  mlflow_artifacts:
 
 

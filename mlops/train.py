@@ -68,22 +68,39 @@ def _load_clean_csv(csv_path: Path) -> pd.DataFrame:
 
 
 def _features_from(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    """Extract features from dataframe"""
     df = df.copy()
-    if "pickup_datetime" in df.columns and not np.issubdtype(df["pickup_datetime"].dtype, np.datetime64):
-        df["pickup_datetime"] = pd.to_datetime(df["pickup_datetime"], errors="coerce")
-    df["hour"] = df["pickup_datetime"].dt.hour
-    df["day_of_week"] = df["pickup_datetime"].dt.dayofweek
+
+    has_dt = "pickup_datetime" in df.columns
+    if has_dt:
+        if not np.issubdtype(df["pickup_datetime"].dtype, np.datetime64):
+            # tolerate mixed formats; NaT on bad rows
+            df["pickup_datetime"] = pd.to_datetime(df["pickup_datetime"], errors="coerce", utc=True)
+        df["hour"] = df["pickup_datetime"].dt.hour.astype("Int8")
+        df["day_of_week"] = df["pickup_datetime"].dt.dayofweek.astype("Int8")
+    else:
+        # No datetime column? fall back to constants
+        df["hour"] = 0
+        df["day_of_week"] = 0
+
     df["distance"] = np.sqrt(
         (df["dropoff_longitude"] - df["pickup_longitude"]) ** 2 +
-        (df["dropoff_latitude"] - df["pickup_latitude"]) ** 2
+        (df["dropoff_latitude"]  - df["pickup_latitude"])  ** 2
     )
-    feats = [
-        "passenger_count", "hour", "day_of_week", "distance",
-        "pickup_longitude", "pickup_latitude", "dropoff_longitude", "dropoff_latitude"
+
+    base_feats = [
+        "passenger_count", "distance",
+        "pickup_longitude", "pickup_latitude",
+        "dropoff_longitude", "dropoff_latitude",
     ]
-    X, y = df[feats], df["trip_duration"]
+    # only include time features when available
+    feats = (["hour", "day_of_week"] + base_feats) if has_dt else base_feats
+
+    # guard against any other absent columns
+    feats = [c for c in feats if c in df.columns]
+
+    y = df["trip_duration"]
     mask = y < 18_000  # < 5 hours
+    X = df[feats]
     return X[mask], y[mask]
 
 def _log_sklearn_model(model, X_for_sig: pd.DataFrame, signature, input_example, pip_reqs):
