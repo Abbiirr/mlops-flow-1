@@ -154,10 +154,6 @@ def _save_model_to_mlflow(
     client.set_model_version_tag("nyc-taxi-regressor", mv.version, "sklearn", sklearn.__version__)
     client.set_model_version_tag("nyc-taxi-regressor", mv.version, "features", ",".join(Xtr.columns))
 
-
-# optional: add a run note shown in UI
-mlflow.set_tag("mlflow.note.content",
-               f"RandomForest(n_estimators=80,max_depth=12). Features={list(Xtr.columns)}. Data={Path(csv_path).name}.")
 def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-experiment") -> dict[str, float]:
     """Train RF on a CSV and log to MLflow (local file store)."""
     MLFLOW_URI = "http://mlflow:5000"
@@ -217,6 +213,9 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
             f"numpy=={np.__version__}",
         ]
         _log_sklearn_model(model, Xtr, signature, input_example, pip_reqs)
+        mlflow.set_tag("mlflow.note.content",
+                       f"RandomForest(n_estimators=80,max_depth=12). "
+                       f"Features={list(Xtr.columns)}. Data={Path(csv_path).name}.")
         _save_model_to_mlflow(run_id, rmse, mae, r2, csv_path, Xtr, Xte, MLFLOW_URI)
 
     print(f"[TRAIN] {Path(csv_path).name}: RMSE={rmse:.2f}  MAE={mae:.2f}  R2={r2:.3f}")
