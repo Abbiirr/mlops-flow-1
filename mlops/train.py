@@ -12,7 +12,8 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from . import config as cfg
 
-
+MLFLOW_URI = "http://mlflow:5000"
+mlflow.set_tracking_uri(f"file://{MLFLOW_URI}")
 def _load_clean_csv(csv_path: Path) -> pd.DataFrame:
     """
     Robust CSV loader:
@@ -112,8 +113,7 @@ def _log_sklearn_model(model, X_for_sig: pd.DataFrame, signature, input_example,
 
 def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-experiment") -> dict[str, float]:
     """Train RF on a CSV and log to MLflow (local file store)."""
-    MLFLOW_URI = "http://mlflow:5000"
-    mlflow.set_tracking_uri(MLFLOW_URI)
+
     # Use train split by default
     if csv_path is None:
         csv_path = cfg.TRAIN_CSV
@@ -122,7 +122,7 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
             csv_path = cfg.RAW_CSV
 
         # Hard-coded MLflow URI — no env, no local file fallback
-    mlflow.set_tracking_uri(MLFLOW_URI)
+    mlflow.set_tracking_uri(f"file://{MLFLOW_URI}")
     print("[TRAIN] MLflow tracking:", mlflow.get_tracking_uri())
     mlflow.set_experiment(experiment_name)
 
