@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# System tools useful for debugging & healthchecks
+# Tools useful for debugging/healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl net-tools iproute2 procps \
  && rm -rf /var/lib/apt/lists/*
@@ -11,10 +11,15 @@ RUN pip install --no-cache-dir mlflow psycopg2-binary
 WORKDIR /srv
 EXPOSE 5000
 
-# Use exec form so signals are handled properly
+# Ensure the artifact dir exists (server writes here when proxying)
+RUN mkdir -p /mlartifacts
+
+# ENTRYPOINT = executable; CMD = default args
 ENTRYPOINT ["mlflow", "server"]
-# Default args can be overridden by compose
-CMD ["--backend-store-uri", "postgresql+psycopg2://mlflow:mlflow@postgres:5432/mlflow", \
-     "--default-artifact-root", "file:///mlartifacts", \
-     "--host", "0.0.0.0", \
-     "--port", "5000"]
+CMD [
+  "--host", "0.0.0.0",
+  "--port", "5000",
+  "--backend-store-uri", "postgresql+psycopg2://airflow:airflow@postgres:5432/mlflow",
+  "--serve-artifacts",
+  "--artifacts-destination", "/mlartifacts"
+]
