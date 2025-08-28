@@ -343,17 +343,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.mlflow
-    command: >
-      mlflow server
-        --host 0.0.0.0
-        --port 5000
-        --backend-store-uri postgresql://<user>:<pass>@postgres:5432/<db>
-        --serve-artifacts
-        --artifacts-destination /mlartifacts
     volumes:
       - ./mlartifacts:/mlartifacts
     ports:
-      - "6200:5000"
+      - "6200:5000"                       # Host 6200 -> container 5000
+    # If you created mlflow DB/user via 01-mlflow.sql, this matches the Dockerfile CMD
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://localhost:5000/version" ]
       interval: 30s
@@ -363,7 +357,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
 
 
 
