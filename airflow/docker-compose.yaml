@@ -346,9 +346,17 @@ services:
     volumes:
       - mlflow_data:/data
       - mlflow_artifacts:/mlartifacts
+    environment:
+      # Tell MLflow/boto3 how to reach MinIO and with what creds
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin123
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_DEFAULT_REGION: us-east-1
+      # Optional but helpful for some MinIO setups:
+      # AWS_S3_ADDRESSING_STYLE: path
+      # AWS_S3_SIGNATURE_VERSION: s3v4
     ports:
-      - "6200:5000"                       # Host 6200 -> container 5000
-    # If you created mlflow DB/user via 01-mlflow.sql, this matches the Dockerfile CMD
+      - "6200:5000"           # host:container
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://localhost:5000/version" ]
       interval: 30s
@@ -358,6 +366,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
 
 
 
