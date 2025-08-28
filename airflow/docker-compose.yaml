@@ -347,7 +347,7 @@ services:
       mlflow server
         --host 0.0.0.0
         --port 5000
-        --backend-store-uri postgresql://<user>:<pass>@postgres:5432/<db>
+        --backend-store-uri postgresql://airflow:airflow@postgres:5432/<db>
         --serve-artifacts
         --artifacts-destination /mlartifacts
     volumes:
