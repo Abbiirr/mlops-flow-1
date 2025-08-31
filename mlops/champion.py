@@ -10,7 +10,8 @@ FS_CHAMPION_DIR = Path("models/champion")
 
 def write_champion(best_run_id: str, metric_name: str, metric_value: float, note: str = "") -> dict:
     """Persist champion info and (optionally) copy its model to models/champion/."""
-    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"))
+    MLFLOW_URI = "http://mlflow:5000"
+    mlflow.set_tracking_uri(MLFLOW_URI)
     payload = {
         "run_id": best_run_id,
         "model_uri": f"runs:/{best_run_id}/model",
