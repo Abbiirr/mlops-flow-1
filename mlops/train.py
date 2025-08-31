@@ -169,7 +169,6 @@ def train_from_csv(csv_path: Path = None, experiment_name: str = "nyc-taxi-exper
     mlflow.set_tracking_uri(MLFLOW_URI)
     print("[TRAIN] MLflow tracking:", mlflow.get_tracking_uri())
     mlflow.set_experiment(experiment_name)
-    _save_model_to_mlflow()
 
     print(f"[TRAIN] Loading data from {Path(csv_path).name}...")
     df = _load_clean_csv(csv_path)
