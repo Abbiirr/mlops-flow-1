@@ -1,0 +1,43 @@
+curl http://localhost:8000/health
+
+
+curl http://localhost:8000/where
+
+
+curl -X POST "http://localhost:8000/predict" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "pickup_datetime": "2025-08-31T09:15:00",
+           "passenger_count": 2,
+           "pickup_longitude": -73.95,
+           "pickup_latitude": 40.78,
+           "dropoff_longitude": -73.98,
+           "dropoff_latitude": 40.76
+         }'
+
+
+curl -X POST "http://localhost:8000/predict_batch" \
+     -H "Content-Type: application/json" \
+     -d '[
+           {
+             "pickup_datetime": "2025-08-31T09:15:00",
+             "passenger_count": 1,
+             "pickup_longitude": -73.95,
+             "pickup_latitude": 40.78,
+             "dropoff_longitude": -73.98,
+             "dropoff_latitude": 40.76
+           },
+           {
+             "pickup_datetime": "2025-08-31T10:00:00",
+             "passenger_count": 3,
+             "pickup_longitude": -73.96,
+             "pickup_latitude": 40.77,
+             "dropoff_longitude": -73.99,
+             "dropoff_latitude": 40.75
+           }
+         ]'
+
+
+curl -X POST "http://localhost:8000/reload"
+
+
