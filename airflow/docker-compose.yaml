@@ -391,6 +391,63 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+
+  fastapi:
+    build:
+      context: ..
+      dockerfile: airflow/Dockerfile.fastapi
+    environment:
+      MLFLOW_TRACKING_URI: "http://mlflow:5000"
+      AIRFLOW_BASE_URL: "http://airflow-apiserver:8080"
+    ports:
+      - "8000:8000"
+    volumes:
+      - "${PROJECT_ROOT:-..}:/app"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+      airflow-apiserver:
+        condition: service_healthy
+    restart: always
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  prediction-api:
+    build:
+      context: ..
+      dockerfile: airflow/Dockerfile.fastapi
+    environment:
+      MLFLOW_TRACKING_URI: "http://mlflow:5000"
+      MODEL_NAME: nyc-taxi-regressor
+      REGISTRY_ALIAS: champion
+    ports:
+      - "8888:8080"
+    volumes:
+      - "${PROJECT_ROOT:-..}:/app"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    restart: always
+    command: uvicorn app.service.app:app --host 0.0.0.0 --port 8080 --reload
+
+  ui:
+    build:
+      context: ../ui
+      dockerfile: Dockerfile
+    environment:
+      STREAMLIT_SERVER_PORT: 8501
+      STREAMLIT_SERVER_ADDRESS: 0.0.0.0
+    ports:
+      - "8501:8501"
+    depends_on:
+      - fastapi
+      - prediction-api
     restart: always
 
 
